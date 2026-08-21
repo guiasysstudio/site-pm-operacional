@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -21,19 +21,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install
+      - name: Install dependencies
         run: npm ci || npm install
 
-      - name: Build
+      - name: Build Vite app
         run: npm run build
 
-      - name: Upload artifact
+      - name: Add temporary custom domain
+        run: echo "oper.guiasys.online" > dist/CNAME
+
+      - name: Verify build artifact
+        run: |
+          echo "Dist contents:"
+          ls -la dist
+          echo "Index preview:"
+          sed -n '1,80p' dist/index.html
+          if grep -q "/src/main.tsx" dist/index.html; then
+            echo "ERROR: dist/index.html ainda aponta para /src/main.tsx"
+            exit 1
+          fi
+          if ! grep -q "/assets/" dist/index.html; then
+            echo "ERROR: dist/index.html nao aponta para assets gerados pelo Vite"
+            exit 1
+          fi
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
